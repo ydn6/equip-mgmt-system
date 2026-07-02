@@ -2,6 +2,16 @@
 
 基于 **Flask + openGauss** 的工业设备全生命周期管理系统，支持设备台账管理、维修记录追踪、多条件筛选、车间统计可视化及 DB4AI 时序预测。
 
+## 老师访问地址
+
+> **直接浏览器打开即可使用，无需安装任何东西：**
+
+```
+http://192.168.31.160:5000
+```
+
+---
+
 ## 技术栈
 
 | 层级 | 技术 |
@@ -36,6 +46,7 @@ opengauss-python/
 ├── app.py                 # Flask 主程序（14 个 API 端点）
 ├── templates/
 │   └── index.html         # Bootstrap 5 单页面应用
+├── deploy.sh              # 服务器一键部署脚本
 ├── rebuild_data.py        # 数据库重建脚本（100 台设备 + 维修记录）
 ├── seed_maintenance.py    # 维修记录批量插入脚本
 ├── test_db.py             # 数据库连接测试
@@ -45,22 +56,36 @@ opengauss-python/
 └── README.md
 ```
 
-## 快速开始
+## 部署方式
 
-### 1. 环境要求
+### 服务器部署（推荐，老师无需操作）
+
+在 openGauss 所在服务器上执行一键脚本：
+
+```bash
+cd /home/omm
+wget https://raw.githubusercontent.com/ynd6/equip-mgmt-system/main/deploy.sh
+bash deploy.sh
+```
+
+部署完成后老师直接浏览器访问 `http://192.168.31.160:5000`。
+
+### 本地开发部署
+
+#### 1. 环境要求
 
 - Python 3.10+
 - openGauss 数据库（已包含 workshop / equipment / maintenance 三张表）
 
-### 2. 安装依赖
+#### 2. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. 修改数据库连接
+#### 3. 修改数据库连接
 
-编辑 `app.py` 第 12-18 行的 `get_db()` 函数，替换为你的 openGauss 连接参数：
+编辑 `app.py` 第 12-18 行的 `get_db()` 函数：
 
 ```python
 def get_db():
@@ -73,13 +98,13 @@ def get_db():
     )
 ```
 
-### 4. 初始化数据
+#### 4. 初始化数据
 
 ```bash
 python rebuild_data.py
 ```
 
-### 5. 启动应用
+#### 5. 启动应用
 
 ```bash
 python app.py

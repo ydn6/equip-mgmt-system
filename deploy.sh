@@ -12,7 +12,7 @@ if [ -d "equip-mgmt-system" ]; then
     echo "项目目录已存在，更新代码..."
     cd equip-mgmt-system && git pull
 else
-    git clone https://github.com/ynd6/equip-mgmt-system.git
+    git clone https://github.com/ydn6/equip-mgmt-system.git
     cd equip-mgmt-system
 fi
 

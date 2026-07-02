@@ -55,7 +55,7 @@ opengauss-python/
 
 ```bash
 cd /home/omm
-wget https://raw.githubusercontent.com/ynd6/equip-mgmt-system/main/deploy.sh
+wget https://raw.githubusercontent.com/ydn6/equip-mgmt-system/master/deploy.sh
 bash deploy.sh
 ```
 

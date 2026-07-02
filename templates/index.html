@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工业设备台账管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .equip-cb, #selectAll { width: 1.25rem; height: 1.25rem; cursor: pointer; accent-color: #0d6efd; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-3">
+        <h3 class="mb-3">工业设备台账管理系统</h3>
+
+        <!-- 导航标签页 -->
+        <ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-equipment"
+                        type="button">设备管理</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-maintenance"
+                        type="button">维修记录</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-stats"
+                        type="button">车间统计</button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- ==================== 设备管理 ==================== -->
+            <div class="tab-pane fade show active" id="tab-equipment">
+                <div class="row mb-3">
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <input type="text" id="equipSearch" class="form-control"
+                                   placeholder="输入设备编号、名称或型号搜索...">
+                            <button class="btn btn-primary" onclick="searchEquipment()">查询</button>
+                        </div>
+                    </div>
+                    <div class="col-md-7 text-end">
+                        <button class="btn btn-outline-info" onclick="selectAllEquip()">全选</button>
+                        <button class="btn btn-outline-secondary" onclick="invertSelectEquip()">反选</button>
+                        <button class="btn btn-warning" onclick="openBatchEditModal()">批量编辑</button>
+                        <button class="btn btn-success" onclick="openEquipAddModal()">+ 新增设备</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th><input type="checkbox" id="selectAll" onchange="toggleAllCheckbox()" title="全选/反选"></th>
+                                <th>编号</th><th>名称</th><th>型号</th><th>车间</th>
+                                <th>状态</th><th>负责人</th><th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="equipTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ==================== 维修记录 ==================== -->
+            <div class="tab-pane fade" id="tab-maintenance">
+                <!-- 筛选面板 -->
+                <div class="card mb-3">
+                    <div class="card-body py-2">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">设备</label>
+                                <select id="maintEquipSelect" class="form-select form-select-sm" onchange="loadMaintenance()">
+                                    <option value="">-- 全部设备 --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">起始月份</label>
+                                <input type="month" id="filterDateFrom" class="form-control form-control-sm" onchange="loadMaintenance()">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">截止月份</label>
+                                <input type="month" id="filterDateTo" class="form-control form-control-sm" onchange="loadMaintenance()">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small mb-0">故障描述</label>
+                                <input type="text" id="filterFaultDesc" class="form-control form-control-sm"
+                                       placeholder="如：主轴异响" onkeydown="if(event.key==='Enter')loadMaintenance()">
+                            </div>
+                            <div class="col-md-1">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearMaintFilter()">清除</button>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button class="btn btn-success btn-sm" onclick="openMaintAddModal()">+ 新增维修记录</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>设备编号</th><th>维修时间</th><th>故障描述</th><th>维修费用 (元)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="maintTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ==================== 车间统计 ==================== -->
+            <div class="tab-pane fade" id="tab-stats">
+                <h5>车间设备统计</h5>
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>车间名称</th><th>设备总数</th><th>在用设备</th><th>维修总次数</th>
+                            </tr>
+                        </thead>
+                        <tbody id="statsTable"></tbody>
+                    </table>
+                </div>
+
+                <h5>设备维修趋势</h5>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <input type="text" id="trendEquipId" class="form-control"
+                                   placeholder="输入设备编号，如 050">
+                            <button class="btn btn-primary" onclick="loadTrend()">查看趋势</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-9">
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <canvas id="trendChart" height="360"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 设备新增 Modal ==================== -->
+    <div class="modal fade" id="equipAddModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新增设备</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="equipAddForm">
+                        <div class="mb-2">
+                            <label class="form-label">设备编号</label>
+                            <input class="form-control" name="equip_id" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">设备名称</label>
+                            <input class="form-control" name="equip_name" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">型号</label>
+                            <input class="form-control" name="model" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">出厂日期</label>
+                            <input type="date" class="form-control" name="manufacture_date" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">采购价格</label>
+                            <input type="number" step="0.01" min="0" class="form-control" name="purchase_price" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">所属车间</label>
+                            <select class="form-select" name="workshop_id" id="addWorkshopSelect" required></select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">负责人</label>
+                            <input class="form-control" name="responsible_person" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">状态</label>
+                            <select class="form-select" name="status" required>
+                                <option value="未使用">未使用</option>
+                                <option value="在用">在用</option>
+                                <option value="维修中">维修中</option>
+                                <option value="报废">报废</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="submitEquipAdd()">保存</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 设备编辑 Modal ==================== -->
+    <div class="modal fade" id="equipEditModal" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑设备</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editEquipId">
+                    <div class="mb-2">
+                        <label class="form-label">负责人</label>
+                        <input class="form-control" id="editPerson">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" id="editStatus">
+                            <option value="未使用">未使用</option>
+                            <option value="在用">在用</option>
+                            <option value="维修中">维修中</option>
+                            <option value="报废">报废</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="submitEquipEdit()">保存</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 批量编辑 Modal ==================== -->
+    <div class="modal fade" id="equipBatchModal" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">批量编辑设备</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="batchCount" class="text-muted"></p>
+                    <div class="mb-2">
+                        <label class="form-label">负责人（留空则不修改）</label>
+                        <input class="form-control" id="batchPerson" placeholder="留空则不修改">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">状态（留空则不修改）</label>
+                        <select class="form-select" id="batchStatus">
+                            <option value="">-- 不修改 --</option>
+                            <option value="未使用">未使用</option>
+                            <option value="在用">在用</option>
+                            <option value="维修中">维修中</option>
+                            <option value="报废">报废</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="submitBatchEdit()">保存</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 维修新增 Modal ==================== -->
+    <div class="modal fade" id="maintAddModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">新增维修记录</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="maintAddForm">
+                        <div class="mb-2">
+                            <label class="form-label">设备</label>
+                            <select class="form-select" id="maintAddEquipId" required></select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">维修时间</label>
+                            <input type="datetime-local" class="form-control" id="maintAddTime" required>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">故障描述</label>
+                            <textarea class="form-control" id="maintAddDesc" rows="2" required></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">维修费用</label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="maintAddCost" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="submitMaintAdd()">保存</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ==================== 通用工具 ====================
+        const API = (url, opts = {}) =>
+            fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts })
+                .then(r => r.json().then(data => ({ ok: r.ok, status: r.status, data })))
+                .catch(e => ({ ok: false, data: { error: e.message } }));
+
+        function showErr(msg) { alert('错误: ' + msg); }
+
+        // ==================== 设备管理 ====================
+        async function searchEquipment() {
+            const q = document.getElementById('equipSearch').value.trim();
+            const { ok, data } = await API('/api/equipment?q=' + encodeURIComponent(q));
+            if (!ok) return showErr(data.error);
+            const tbody = document.getElementById('equipTable');
+            tbody.innerHTML = data.map(e => `
+                <tr>
+                    <td><input type="checkbox" class="equip-cb" value="${esc(e.equip_id)}"></td>
+                    <td>${esc(e.equip_id)}</td>
+                    <td>${esc(e.equip_name)}</td>
+                    <td>${esc(e.model)}</td>
+                    <td>${esc(e.workshop_name || '')}</td>
+                    <td><span class="badge bg-${e.status === '在用' ? 'success' : e.status === '维修中' ? 'warning' : e.status === '报废' ? 'secondary' : 'info'}">${esc(e.status)}</span></td>
+                    <td>${esc(e.responsible_person)}</td>
+                    <td nowrap>
+                        <button class="btn btn-sm btn-outline-warning" onclick="openEquipEditModal('${esc(e.equip_id)}','${esc(e.responsible_person)}','${esc(e.status)}')">编辑</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteEquip('${esc(e.equip_id)}')">删除</button>
+                    </td>
+                </tr>`).join('');
+            document.getElementById('selectAll').checked = false;
+        }
+
+        async function openEquipAddModal() {
+            await loadWorkshopsInto('addWorkshopSelect');
+            document.getElementById('equipAddForm').reset();
+            new bootstrap.Modal('#equipAddModal').show();
+        }
+
+        async function submitEquipAdd() {
+            const f = document.getElementById('equipAddForm');
+            const fd = new FormData(f);
+            const body = Object.fromEntries(fd.entries());
+            body.purchase_price = parseFloat(body.purchase_price);
+
+            const { ok, data } = await API('/api/equipment', {
+                method: 'POST', body: JSON.stringify(body)
+            });
+            if (!ok) return showErr(data.error);
+            alert(data.message);
+            bootstrap.Modal.getInstance('#equipAddModal').hide();
+            searchEquipment();
+        }
+
+        function openEquipEditModal(id, person, status) {
+            document.getElementById('editEquipId').value = id;
+            document.getElementById('editPerson').value = person;
+            document.getElementById('editStatus').value = status;
+            new bootstrap.Modal('#equipEditModal').show();
+        }
+
+        async function submitEquipEdit() {
+            const id = document.getElementById('editEquipId').value;
+            const body = {
+                responsible_person: document.getElementById('editPerson').value,
+                status: document.getElementById('editStatus').value
+            };
+            const { ok, data } = await API('/api/equipment/' + encodeURIComponent(id), {
+                method: 'PUT', body: JSON.stringify(body)
+            });
+            if (!ok) return showErr(data.error);
+            alert(data.message);
+            bootstrap.Modal.getInstance('#equipEditModal').hide();
+            searchEquipment();
+        }
+
+        async function deleteEquip(id) {
+            if (!confirm('确定删除设备 ' + id + ' 吗？（仅"未使用"且无维修记录可删）')) return;
+            const { ok, data } = await API('/api/equipment/' + encodeURIComponent(id), { method: 'DELETE' });
+            if (!ok) return showErr(data.error);
+            alert(data.message);
+            searchEquipment();
+        }
+
+        // ---- 多选 / 批量编辑 ----
+        function getSelectedIds() {
+            return [...document.querySelectorAll('.equip-cb:checked')].map(cb => cb.value);
+        }
+        function toggleAllCheckbox() {
+            const master = document.getElementById('selectAll');
+            document.querySelectorAll('.equip-cb').forEach(cb => cb.checked = master.checked);
+        }
+        function selectAllEquip() {
+            document.querySelectorAll('.equip-cb').forEach(cb => cb.checked = true);
+            document.getElementById('selectAll').checked = true;
+        }
+        function invertSelectEquip() {
+            document.querySelectorAll('.equip-cb').forEach(cb => cb.checked = !cb.checked);
+            document.getElementById('selectAll').checked =
+                document.querySelectorAll('.equip-cb').length > 0 &&
+                [...document.querySelectorAll('.equip-cb')].every(cb => cb.checked);
+        }
+        function openBatchEditModal() {
+            const ids = getSelectedIds();
+            if (!ids.length) return showErr('请先勾选要编辑的设备');
+            document.getElementById('batchCount').textContent = `已选择 ${ids.length} 台设备`;
+            document.getElementById('batchPerson').value = '';
+            document.getElementById('batchStatus').value = '';
+            new bootstrap.Modal('#equipBatchModal').show();
+        }
+        async function submitBatchEdit() {
+            const ids = getSelectedIds();
+            const person = document.getElementById('batchPerson').value.trim();
+            const status = document.getElementById('batchStatus').value;
+            const updates = {};
+            if (person) updates.responsible_person = person;
+            if (status) updates.status = status;
+            if (!Object.keys(updates).length) return showErr('请至少填写一个要修改的字段');
+
+            const { ok, data } = await API('/api/equipment/batch', {
+                method: 'PUT', body: JSON.stringify({ ids, updates })
+            });
+            if (!ok) return showErr(data.error);
+            alert(data.message);
+            bootstrap.Modal.getInstance('#equipBatchModal').hide();
+            searchEquipment();
+        }
+
+        // ==================== 维修记录 ====================
+        async function loadEquipmentDropdown() {
+            const { ok, data } = await API('/api/equipment?q=');
+            if (!ok) return;
+            const sel = document.getElementById('maintEquipSelect');
+            sel.innerHTML = '<option value="">-- 请选择设备 --</option>' +
+                data.map(e => `<option value="${esc(e.equip_id)}">${esc(e.equip_id)} - ${esc(e.equip_name)}</option>`).join('');
+            // Also load for add modal
+            const selAdd = document.getElementById('maintAddEquipId');
+            selAdd.innerHTML = '<option value="">-- 请选择设备 --</option>' +
+                data.map(e => `<option value="${esc(e.equip_id)}">${esc(e.equip_id)} - ${esc(e.equip_name)}</option>`).join('');
+        }
+
+        async function loadMaintenance() {
+            const eid = document.getElementById('maintEquipSelect').value;
+            const date_from = document.getElementById('filterDateFrom').value;
+            const date_to = document.getElementById('filterDateTo').value;
+            const fault_desc = document.getElementById('filterFaultDesc').value.trim();
+
+            // 多条件筛选 API
+            let url = '/api/maintenance/search?';
+            if (eid) url += 'equip_id=' + encodeURIComponent(eid) + '&';
+            if (date_from) url += 'date_from=' + encodeURIComponent(date_from) + '&';
+            if (date_to) url += 'date_to=' + encodeURIComponent(date_to) + '&';
+            if (fault_desc) url += 'fault_desc=' + encodeURIComponent(fault_desc) + '&';
+
+            const { ok, data } = await API(url);
+            if (!ok) return showErr(data.error);
+            if (!data.length) {
+                document.getElementById('maintTable').innerHTML =
+                    '<tr><td colspan="4" class="text-center text-muted py-4">无维修记录</td></tr>';
+                return;
+            }
+            document.getElementById('maintTable').innerHTML = data.map(m => `
+                <tr>
+                    <td>${esc(m.equip_id)}</td>
+                    <td>${esc(formatDT(m.maintenance_time))}</td>
+                    <td>${esc(m.fault_desc)}</td>
+                    <td>${m.repair_cost.toFixed(2)}</td>
+                </tr>`).join('');
+        }
+
+        function clearMaintFilter() {
+            document.getElementById('maintEquipSelect').value = '';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            document.getElementById('filterFaultDesc').value = '';
+            loadMaintenance();
+        }
+
+        async function openMaintAddModal() {
+            await loadEquipmentDropdown();
+            document.getElementById('maintAddTime').value = new Date().toISOString().slice(0, 16);
+            document.getElementById('maintAddDesc').value = '';
+            document.getElementById('maintAddCost').value = '';
+            new bootstrap.Modal('#maintAddModal').show();
+        }
+
+        async function submitMaintAdd() {
+            const body = {
+                equip_id: document.getElementById('maintAddEquipId').value,
+                maintenance_time: document.getElementById('maintAddTime').value,
+                fault_desc: document.getElementById('maintAddDesc').value,
+                repair_cost: parseFloat(document.getElementById('maintAddCost').value)
+            };
+            const { ok, data } = await API('/api/maintenance', {
+                method: 'POST', body: JSON.stringify(body)
+            });
+            if (!ok) return showErr(data.error);
+            alert(data.message);
+            bootstrap.Modal.getInstance('#maintAddModal').hide();
+            // 回填下拉框并刷新
+            document.getElementById('maintEquipSelect').value = body.equip_id;
+            loadMaintenance();
+        }
+
+        // ==================== 车间统计 ====================
+        async function loadWorkshopStats() {
+            const { ok, data } = await API('/api/stats/workshop');
+            if (!ok) return showErr(data.error);
+            document.getElementById('statsTable').innerHTML = data.map(s => `
+                <tr>
+                    <td>${esc(s.workshop_name)}</td>
+                    <td>${s.total_devices}</td>
+                    <td>${s.active_devices}</td>
+                    <td>${s.total_repairs}</td>
+                </tr>`).join('');
+        }
+
+        let trendChart = null;
+        async function loadTrend() {
+            const eid = document.getElementById('trendEquipId').value.trim();
+            if (!eid) return showErr('请输入设备编号');
+
+            // 并行请求趋势数据 + 预测数据
+            const [trendRes, predRes] = await Promise.all([
+                API('/api/stats/trend?equip_id=' + encodeURIComponent(eid)),
+                API('/api/stats/predict?equip_id=' + encodeURIComponent(eid))
+            ]);
+
+            if (!trendRes.ok) return showErr(trendRes.data.error);
+            const data = trendRes.data;
+
+            const labels = data.map(d => d.month);
+            const values = data.map(d => d.count);
+
+            // 预测数据
+            let predLabel = null, predValue = null, predRange = null, predMethod = '';
+            if (predRes.ok && predRes.data.prediction && predRes.data.prediction.length) {
+                predLabel = '预测';
+                predValue = predRes.data.prediction[0].count;
+                predMethod = predRes.data.method;
+                if (predRes.data.prediction[0].range_low !== undefined) {
+                    predRange = {
+                        low: predRes.data.prediction[0].range_low,
+                        high: predRes.data.prediction[0].range_high
+                    };
+                }
+            }
+
+            if (trendChart) trendChart.destroy();
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            // 历史数据渐变
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(64, 158, 255, 0.95)');
+            gradient.addColorStop(0.5, 'rgba(64, 158, 255, 0.6)');
+            gradient.addColorStop(1, 'rgba(64, 158, 255, 0.15)');
+
+            const hoverGradient = ctx.createLinearGradient(0, 0, 0, 300);
+            hoverGradient.addColorStop(0, 'rgba(13, 110, 253, 1)');
+            hoverGradient.addColorStop(1, 'rgba(13, 110, 253, 0.4)');
+
+            // 预测数据渐变（橙红）
+            const predGradient = ctx.createLinearGradient(0, 0, 0, 300);
+            predGradient.addColorStop(0, 'rgba(255, 140, 0, 0.9)');
+            predGradient.addColorStop(1, 'rgba(255, 99, 71, 0.2)');
+
+            // 构建 labels 和 datasets
+            const allLabels = predLabel ? [...labels, predLabel] : labels;
+            const histData = predLabel ? [...values, null] : values;
+            const predDataArr = predLabel
+                ? [...Array(labels.length).fill(null), predValue]
+                : [];
+
+            const datasets = [{
+                label: '历史维修次数',
+                data: histData,
+                backgroundColor: gradient,
+                borderColor: 'rgba(13, 110, 253, 0.9)',
+                borderWidth: 1.5,
+                borderRadius: 8,
+                borderSkipped: false,
+                hoverBackgroundColor: hoverGradient,
+                hoverBorderColor: '#0d6efd',
+                hoverBorderWidth: 2,
+                order: 1
+            }];
+
+            if (predLabel) {
+                datasets.push({
+                    label: 'DB4AI 预测值',
+                    data: predDataArr,
+                    backgroundColor: predGradient,
+                    borderColor: 'rgba(255, 99, 71, 0.9)',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    borderDash: [6, 3],
+                    hoverBorderColor: '#ff4500',
+                    hoverBorderWidth: 3,
+                    order: 0
+                });
+            }
+
+            const trendTitle = predLabel
+                ? `设备 ${eid} 维修趋势与预测 (${predMethod})`
+                : `设备 ${eid} 维修趋势`;
+
+            trendChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: allLabels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 800, easing: 'easeOutQuart' },
+                    scales: {
+                        x: {
+                            grid: { display: false, drawBorder: false },
+                            ticks: { color: '#6c757d', font: { size: 12, weight: '500' } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
+                            ticks: {
+                                stepSize: 1,
+                                color: '#6c757d',
+                                font: { size: 12 },
+                                callback: v => v === 0 ? '0' : v,
+                                padding: 8
+                            },
+                            border: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: !!predLabel,
+                            position: 'top',
+                            labels: { usePointStyle: true, padding: 20, font: { size: 12 } }
+                        },
+                        title: {
+                            display: true,
+                            text: trendTitle,
+                            font: { size: 14, weight: 'bold' },
+                            color: '#333',
+                            padding: { bottom: 16 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(33,37,41,0.92)',
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 13 },
+                            padding: 14,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                title: items => items[0].label === '预测'
+                                    ? '下月预测'
+                                    : items[0].label.replace('-', '年') + '月',
+                                label: ctx => ctx.dataset.label + ': ' + ctx.raw + ' 次' +
+                                    (ctx.dataset.label.includes('预测') && predRange
+                                        ? '  (' + predRange.low + '~' + predRange.high + ')'
+                                        : '')
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== 通用辅助 ====================
+        function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function formatDT(s) { if (!s) return ''; return s.replace('T', ' ').slice(0, 19); }
+
+        async function loadWorkshopsInto(selectId) {
+            const { ok, data } = await API('/api/workshops');
+            if (ok) {
+                document.getElementById(selectId).innerHTML =
+                    data.map(w => `<option value="${esc(w.id)}">${esc(w.name)} (${esc(w.location)})</option>`).join('');
+            }
+        }
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            searchEquipment();
+            loadWorkshopStats();
+            loadEquipmentDropdown();
+
+            // 回车搜索
+            document.getElementById('equipSearch').addEventListener('keydown', e => {
+                if (e.key === 'Enter') searchEquipment();
+            });
+            document.getElementById('trendEquipId').addEventListener('keydown', e => {
+                if (e.key === 'Enter') loadTrend();
+            });
+
+            // 切换到统计页时刷新
+            document.querySelector('[data-bs-target="#tab-stats"]').addEventListener('click', loadWorkshopStats);
+            document.querySelector('[data-bs-target="#tab-maintenance"]').addEventListener('click', loadEquipmentDropdown);
+        });
+    </script>
+</body>
+</html>
